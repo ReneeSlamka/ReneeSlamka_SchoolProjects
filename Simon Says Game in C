@@ -1,0 +1,227 @@
+/*Author: Renee Slamka
+ *Section: 204
+ *Lab Section: L2N
+ *Purpose: To implement a simplified version of the popular game "Simons Says" using a multi-coloured LED simulator.
+ */
+
+#include <stdio.h>
+#include <stdlib.h>
+#include <Hardware_Utilities.h> //DAQ files and LED simulator provided by professor
+#include <time.h>
+#include <Windows.h> 
+
+//define constants
+#define TRUE 1
+#define FALSE 0
+#define ON 1
+#define OFF 0 
+
+//input channels
+#define BUTTON_0 0
+#define BUTTON_1 1
+#define BUTTON_2 2
+#define BUTTON_3 3
+
+//LED output channels
+#define	LED_0_GREEN 0 
+#define LED_1_RED 1
+#define LED_2 2  
+#define LED_3 3
+
+
+//sleep function constant
+#define TIME_SECONDS 1000
+
+//declare user defined functions
+int rand_num_gen(int lower_lim, int upper_lim);
+void rand_num_array(int level, int array[]);
+void flash_LED(int LED_channel);
+void flash_LED_seq(int level, int array[]);
+int get_user_answer(void);
+void get_user_multi_input(int level, int arr[]);
+void flash_LED_general(int channel);
+void simon_says(void);
+
+int main (void)
+{
+	int config_type;
+	
+	//prompt user for config type
+	printf("Enter a configuration type (0 or 6):");
+	scanf("%i",&config_type);
+	printf("You have selected: %i\n",config_type);
+	
+	  
+	if (init_daq(config_type) ==TRUE)
+	{
+		printf("Welcome to Simon Says! Want to test your memory? Give it a try!\n");
+		system("PAUSE"); //allows user to get out of program if daq closed at this point
+		simon_says();
+		
+	}
+
+	else
+	{
+		printf("Error initializing simulator. Please try again.\n");
+	}
+
+	system ("PAUSE");
+	return 0;
+	//end main function
+}
+
+//function that generates random numbers
+int rand_num_gen(int lower_lim, int upper_lim)
+{
+	return rand()%(upper_lim-lower_lim+1)+lower_lim;
+}
+//function assigns random numbers to an array of a given size
+void rand_num_array(int level, int array[])
+{
+	int counter;
+	for (counter = 0; counter<level;counter++)
+	{
+		array[counter]=rand_num_gen(0, 3);
+	}
+}
+
+//function that flashes the LED once for 0.5 seconds 
+void flash_LED(int LED_channel)
+{
+	write_binary(LED_channel,ON);
+	Sleep(TIME_SECONDS*0.5);
+	write_binary(LED_channel,OFF);
+	Sleep(TIME_SECONDS*0.5);
+}
+//function flashes different sequences of LEDS
+void flash_LED_seq(int level, int array[])
+{
+	int counter;
+	for (counter=0;counter<level;counter++)
+	{
+		flash_LED(array[counter]);		
+	}
+}
+
+//function flashes LED 3 times
+void flash_LED_general(int channel)
+{
+	int counter;
+	for (counter=0;counter<3;counter++)
+	{
+		flash_LED(channel);		
+	}
+}
+
+//function gets multiple user inputs
+void get_user_multi_input(int level, int arr[])
+{
+	int counter;
+	for (counter=0;counter<level;counter++)
+	{
+		arr[counter]=get_user_answer();		
+	}
+}
+
+
+//reads the push buttons to determine what button user has pushed as his/her answer and returns button's id number
+int get_user_answer(void)
+{
+	int count,answer=999;//assigned random number to answer so doesn't result in code break due to lack of initialization when user quits without pressing a button
+	while ((read_binary(BUTTON_0)==OFF && read_binary(BUTTON_1)==OFF) && (read_binary(BUTTON_2)==OFF && read_binary(BUTTON_3)==OFF))
+	{
+				//pause, gives user time to respond
+	}
+					
+	while ((read_binary(BUTTON_0)==ON||read_binary(BUTTON_1)==ON)||(read_binary(BUTTON_2)==ON||read_binary(BUTTON_3)==ON))
+	{
+		for (count=0; count < 4; count ++)
+		{
+			if (read_binary(count)==ON)
+			{
+				answer=count;
+			}			
+		}
+	}
+	return answer; 
+}
+//function that runs simon says game
+void simon_says(void)
+{
+	//simon says starts
+		int sequence[999];
+		int user_attempt[999]={0};
+		int count, success=0, level;
+		int current_level;
+		     
+		//superloop  
+		while (user_has_quit()==FALSE) 
+		{   
+			//seeding random num gen function
+			srand((unsigned) time(NULL));
+			      
+			//create random sequence of 5 numbers for LEDs and assign to sequence array
+			
+			printf("Please enter the desired number of levels (minimum 1): \n");
+			scanf("%i",&level);
+			printf("You have chosen to attempt %i levels. Good luck!\n", level);
+			rand_num_array(level, sequence);
+			
+			//give user time to get ready
+			Sleep(TIME_SECONDS*3);
+
+			//start simon says level 1
+			
+			//program displays sequence of level 1 
+			flash_LED_seq(1, sequence);
+			get_user_multi_input(1, user_attempt);  
+
+				success=1;  
+				current_level=1;
+				
+
+				while ((success==current_level)&&(current_level<=level))
+				{
+					success=0;
+					for (count=0; count<current_level; count++)
+					{
+						if (user_attempt[count]==sequence[count])
+						{
+							success++;
+						}
+					}   
+					
+					if (success==current_level)
+					{
+						if ((current_level==level)&&(success==current_level))
+						{
+							current_level++;
+							current_level++;
+							flash_LED_general(LED_0_GREEN);
+							printf("CONGRATULATIONS! WE HAVE A WINNER!\n");
+							
+						}
+						else
+						{
+							success++;
+							current_level++;
+							flash_LED_seq(current_level, sequence);
+							get_user_multi_input(current_level, user_attempt);
+						}
+					}
+					else
+					{
+						if (success < current_level)
+						{
+							flash_LED_general(LED_1_RED);
+							printf("Sorry, you lose.\n");
+						} 
+					}
+				}
+				
+			printf("Press enter to start again (or to close program if have exited simulator)\n");
+			system("PAUSE");
+
+		}
+
+}
